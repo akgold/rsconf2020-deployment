@@ -1,0 +1,69 @@
+---
+title: "Bike Data ETL"
+author: "Alex Gold"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(pins)
+```
+
+
+```{r}
+con <- DBI::dbConnect(odbc::odbc(), "Content DB", timeout = 10)
+pins::board_register_rsconnect(server = "https://colorado.rstudio.com/rsc",
+                               key = Sys.getenv("RSTUDIOCONNECT_API_KEY"))
+```
+
+
+
+# Get Num Bikes
+```{r}
+(dat <- httr::GET("https://gbfs.capitalbikeshare.com/gbfs/en/station_status.json") %>%
+   httr::content() %>%
+   magrittr::extract2("data") %>%
+   magrittr::extract2("stations") %>%
+   purrr::map_df(as.tibble))
+```
+
+```{r}
+DBI::dbWriteTable(con, "bike_raw_dataset", dat, append = TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Get Stations
+```{r}
+(stats <- httr::GET("https://gbfs.capitalbikeshare.com/gbfs/en/station_information.json") %>%
+   httr::content() %>%
+   magrittr::extract2("data") %>%
+   magrittr::extract2("stations") %>%
+   purrr::map_df(~ magrittr::extract(., c("name", "station_id", "lat", "lon", "capacity")) %>% as_tibble)) 
+```
+
+```{r}
+pins::pin(stats, "bike_station_information", "Bike Stations")
+```
+
